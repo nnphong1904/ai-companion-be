@@ -36,6 +36,13 @@ type StoryReaction struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+// StoryPage represents a cursor-paginated page of stories.
+type StoryPage struct {
+	Stories    []Story `json:"stories"`
+	NextCursor string  `json:"next_cursor,omitempty"`
+	HasMore    bool    `json:"has_more"`
+}
+
 // ReactToStoryRequest is the payload for reacting to a story slide.
 type ReactToStoryRequest struct {
 	MediaID  uuid.UUID `json:"media_id"`

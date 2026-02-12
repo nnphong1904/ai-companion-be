@@ -3,8 +3,10 @@ package repository
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"ai-companion-be/internal/models"
@@ -12,8 +14,9 @@ import (
 
 // StoryRepository defines data access operations for stories.
 type StoryRepository interface {
+	GetByID(ctx context.Context, id uuid.UUID) (*models.Story, error)
 	GetByCompanionID(ctx context.Context, companionID uuid.UUID) ([]models.Story, error)
-	GetActiveStories(ctx context.Context) ([]models.Story, error)
+	GetActiveStories(ctx context.Context, cursor *time.Time, limit int) (*models.StoryPage, error)
 	CreateReaction(ctx context.Context, reaction *models.StoryReaction) error
 }
 
@@ -24,6 +27,24 @@ type storyRepo struct {
 // NewStoryRepository creates a new StoryRepository backed by PostgreSQL.
 func NewStoryRepository(pool *pgxpool.Pool) StoryRepository {
 	return &storyRepo{pool: pool}
+}
+
+func (r *storyRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.Story, error) {
+	query := `
+		SELECT id, companion_id, created_at, expires_at
+		FROM stories
+		WHERE id = $1`
+
+	var s models.Story
+	err := r.pool.QueryRow(ctx, query, id).
+		Scan(&s.ID, &s.CompanionID, &s.CreatedAt, &s.ExpiresAt)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("story not found")
+		}
+		return nil, fmt.Errorf("getting story: %w", err)
+	}
+	return &s, nil
 }
 
 func (r *storyRepo) GetByCompanionID(ctx context.Context, companionID uuid.UUID) ([]models.Story, error) {
@@ -51,52 +72,38 @@ func (r *storyRepo) GetByCompanionID(ctx context.Context, companionID uuid.UUID)
 		return nil, err
 	}
 
-	// Load media for each story to avoid N+1: batch query.
-	if len(stories) > 0 {
-		storyIDs := make([]uuid.UUID, len(stories))
-		storyMap := make(map[uuid.UUID]int, len(stories))
-		for i, s := range stories {
-			storyIDs[i] = s.ID
-			storyMap[s.ID] = i
-		}
-
-		mediaQuery := `
-			SELECT id, story_id, media_url, media_type, duration, sort_order, created_at
-			FROM story_media
-			WHERE story_id = ANY($1)
-			ORDER BY sort_order`
-
-		mediaRows, err := r.pool.Query(ctx, mediaQuery, storyIDs)
-		if err != nil {
-			return nil, fmt.Errorf("querying story media: %w", err)
-		}
-		defer mediaRows.Close()
-
-		for mediaRows.Next() {
-			var m models.StoryMedia
-			if err := mediaRows.Scan(&m.ID, &m.StoryID, &m.MediaURL, &m.MediaType, &m.Duration, &m.SortOrder, &m.CreatedAt); err != nil {
-				return nil, fmt.Errorf("scanning story media: %w", err)
-			}
-			if idx, ok := storyMap[m.StoryID]; ok {
-				stories[idx].Media = append(stories[idx].Media, m)
-			}
-		}
-		if err := mediaRows.Err(); err != nil {
-			return nil, err
-		}
-	}
-
-	return stories, nil
+	return r.loadMedia(ctx, stories)
 }
 
-func (r *storyRepo) GetActiveStories(ctx context.Context) ([]models.Story, error) {
-	query := `
-		SELECT s.id, s.companion_id, s.created_at, s.expires_at
-		FROM stories s
-		WHERE s.expires_at > NOW()
-		ORDER BY s.created_at DESC`
+func (r *storyRepo) GetActiveStories(ctx context.Context, cursor *time.Time, limit int) (*models.StoryPage, error) {
+	if limit <= 0 || limit > 50 {
+		limit = 20
+	}
 
-	rows, err := r.pool.Query(ctx, query)
+	fetchLimit := limit + 1
+
+	var query string
+	var args []any
+
+	if cursor != nil {
+		query = `
+			SELECT s.id, s.companion_id, s.created_at, s.expires_at
+			FROM stories s
+			WHERE s.expires_at > NOW() AND s.created_at < $1
+			ORDER BY s.created_at DESC
+			LIMIT $2`
+		args = []any{*cursor, fetchLimit}
+	} else {
+		query = `
+			SELECT s.id, s.companion_id, s.created_at, s.expires_at
+			FROM stories s
+			WHERE s.expires_at > NOW()
+			ORDER BY s.created_at DESC
+			LIMIT $1`
+		args = []any{fetchLimit}
+	}
+
+	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("querying active stories: %w", err)
 	}
@@ -114,42 +121,25 @@ func (r *storyRepo) GetActiveStories(ctx context.Context) ([]models.Story, error
 		return nil, err
 	}
 
-	// Batch-load media.
-	if len(stories) > 0 {
-		storyIDs := make([]uuid.UUID, len(stories))
-		storyMap := make(map[uuid.UUID]int, len(stories))
-		for i, s := range stories {
-			storyIDs[i] = s.ID
-			storyMap[s.ID] = i
-		}
+	page := &models.StoryPage{HasMore: false}
 
-		mediaQuery := `
-			SELECT id, story_id, media_url, media_type, duration, sort_order, created_at
-			FROM story_media
-			WHERE story_id = ANY($1)
-			ORDER BY sort_order`
-
-		mediaRows, err := r.pool.Query(ctx, mediaQuery, storyIDs)
-		if err != nil {
-			return nil, fmt.Errorf("querying story media: %w", err)
-		}
-		defer mediaRows.Close()
-
-		for mediaRows.Next() {
-			var m models.StoryMedia
-			if err := mediaRows.Scan(&m.ID, &m.StoryID, &m.MediaURL, &m.MediaType, &m.Duration, &m.SortOrder, &m.CreatedAt); err != nil {
-				return nil, fmt.Errorf("scanning story media: %w", err)
-			}
-			if idx, ok := storyMap[m.StoryID]; ok {
-				stories[idx].Media = append(stories[idx].Media, m)
-			}
-		}
-		if err := mediaRows.Err(); err != nil {
-			return nil, err
-		}
+	if len(stories) > limit {
+		page.HasMore = true
+		stories = stories[:limit]
 	}
 
-	return stories, nil
+	stories, err = r.loadMedia(ctx, stories)
+	if err != nil {
+		return nil, err
+	}
+
+	page.Stories = stories
+	if len(stories) > 0 {
+		last := stories[len(stories)-1].CreatedAt.Format(time.RFC3339Nano)
+		page.NextCursor = last
+	}
+
+	return page, nil
 }
 
 func (r *storyRepo) CreateReaction(ctx context.Context, reaction *models.StoryReaction) error {
@@ -162,4 +152,45 @@ func (r *storyRepo) CreateReaction(ctx context.Context, reaction *models.StoryRe
 	return r.pool.QueryRow(ctx, query,
 		reaction.ID, reaction.UserID, reaction.StoryID, reaction.MediaID, reaction.Reaction,
 	).Scan(&reaction.CreatedAt)
+}
+
+// loadMedia batch-loads media for a list of stories to avoid N+1 queries.
+func (r *storyRepo) loadMedia(ctx context.Context, stories []models.Story) ([]models.Story, error) {
+	if len(stories) == 0 {
+		return stories, nil
+	}
+
+	storyIDs := make([]uuid.UUID, len(stories))
+	storyMap := make(map[uuid.UUID]int, len(stories))
+	for i, s := range stories {
+		storyIDs[i] = s.ID
+		storyMap[s.ID] = i
+	}
+
+	mediaQuery := `
+		SELECT id, story_id, media_url, media_type, duration, sort_order, created_at
+		FROM story_media
+		WHERE story_id = ANY($1)
+		ORDER BY sort_order`
+
+	mediaRows, err := r.pool.Query(ctx, mediaQuery, storyIDs)
+	if err != nil {
+		return nil, fmt.Errorf("querying story media: %w", err)
+	}
+	defer mediaRows.Close()
+
+	for mediaRows.Next() {
+		var m models.StoryMedia
+		if err := mediaRows.Scan(&m.ID, &m.StoryID, &m.MediaURL, &m.MediaType, &m.Duration, &m.SortOrder, &m.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scanning story media: %w", err)
+		}
+		if idx, ok := storyMap[m.StoryID]; ok {
+			stories[idx].Media = append(stories[idx].Media, m)
+		}
+	}
+	if err := mediaRows.Err(); err != nil {
+		return nil, err
+	}
+
+	return stories, nil
 }

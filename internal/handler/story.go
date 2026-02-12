@@ -3,6 +3,8 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -22,15 +24,32 @@ func NewStoryHandler(stories *service.StoryService) *StoryHandler {
 	return &StoryHandler{stories: stories}
 }
 
-// GetActiveStories handles GET /api/stories.
+// GetActiveStories handles GET /api/stories?cursor=...&limit=...
 func (h *StoryHandler) GetActiveStories(w http.ResponseWriter, r *http.Request) {
-	stories, err := h.stories.GetActiveStories(r.Context())
+	var cursor *time.Time
+	if cursorStr := r.URL.Query().Get("cursor"); cursorStr != "" {
+		t, err := time.Parse(time.RFC3339Nano, cursorStr)
+		if err != nil {
+			Error(w, http.StatusBadRequest, "invalid cursor format")
+			return
+		}
+		cursor = &t
+	}
+
+	limit := 20
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
+			limit = l
+		}
+	}
+
+	page, err := h.stories.GetActiveStories(r.Context(), cursor, limit)
 	if err != nil {
 		Error(w, http.StatusInternalServerError, "failed to fetch stories")
 		return
 	}
 
-	JSON(w, http.StatusOK, stories)
+	JSON(w, http.StatusOK, page)
 }
 
 // GetByCompanion handles GET /api/companions/{id}/stories.

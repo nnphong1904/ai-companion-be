@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -47,7 +48,7 @@ func (h *MemoryHandler) Create(w http.ResponseWriter, r *http.Request) {
 	JSON(w, http.StatusCreated, memory)
 }
 
-// GetByCompanion handles GET /api/companions/{id}/memories.
+// GetByCompanion handles GET /api/companions/{id}/memories?limit=...
 func (h *MemoryHandler) GetByCompanion(w http.ResponseWriter, r *http.Request) {
 	companionID, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
@@ -57,13 +58,20 @@ func (h *MemoryHandler) GetByCompanion(w http.ResponseWriter, r *http.Request) {
 
 	userID := middleware.GetUserID(r.Context())
 
-	memories, err := h.memories.GetByCompanion(r.Context(), userID, companionID)
+	limit := 50
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
+			limit = l
+		}
+	}
+
+	page, err := h.memories.GetByCompanion(r.Context(), userID, companionID, limit)
 	if err != nil {
 		Error(w, http.StatusInternalServerError, "failed to fetch memories")
 		return
 	}
 
-	JSON(w, http.StatusOK, memories)
+	JSON(w, http.StatusOK, page)
 }
 
 // Delete handles DELETE /api/memories/{id}.

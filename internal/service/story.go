@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -26,9 +27,9 @@ func (s *StoryService) GetByCompanionID(ctx context.Context, companionID uuid.UU
 	return s.stories.GetByCompanionID(ctx, companionID)
 }
 
-// GetActiveStories returns all currently active stories across companions.
-func (s *StoryService) GetActiveStories(ctx context.Context) ([]models.Story, error) {
-	return s.stories.GetActiveStories(ctx)
+// GetActiveStories returns a paginated list of currently active stories.
+func (s *StoryService) GetActiveStories(ctx context.Context, cursor *time.Time, limit int) (*models.StoryPage, error) {
+	return s.stories.GetActiveStories(ctx, cursor, limit)
 }
 
 // ReactToStory records a user's reaction and updates the relationship state.
@@ -59,25 +60,13 @@ func (s *StoryService) ReactToStory(ctx context.Context, userID uuid.UUID, story
 }
 
 func (s *StoryService) updateRelationshipOnReaction(ctx context.Context, userID, storyID uuid.UUID) {
-	// Best-effort: don't fail the reaction if relationship update fails.
-	// We need the companion ID from the story. For now, we skip if it fails.
-	stories, err := s.stories.GetActiveStories(ctx)
+	// Look up the single story by ID instead of fetching all active stories.
+	story, err := s.stories.GetByID(ctx, storyID)
 	if err != nil {
 		return
 	}
 
-	var companionID uuid.UUID
-	for _, st := range stories {
-		if st.ID == storyID {
-			companionID = st.CompanionID
-			break
-		}
-	}
-	if companionID == uuid.Nil {
-		return
-	}
-
-	state, err := s.relationships.GetByUserAndCompanion(ctx, userID, companionID)
+	state, err := s.relationships.GetByUserAndCompanion(ctx, userID, story.CompanionID)
 	if err != nil {
 		return
 	}

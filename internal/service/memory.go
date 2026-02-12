@@ -42,9 +42,9 @@ func (s *MemoryService) Create(ctx context.Context, userID, companionID uuid.UUI
 	return memory, nil
 }
 
-// GetByCompanion returns all memories for a user-companion pair, pinned first.
-func (s *MemoryService) GetByCompanion(ctx context.Context, userID, companionID uuid.UUID) ([]models.Memory, error) {
-	return s.memories.GetByUserAndCompanion(ctx, userID, companionID)
+// GetByCompanion returns a paginated list of memories for a user-companion pair, pinned first.
+func (s *MemoryService) GetByCompanion(ctx context.Context, userID, companionID uuid.UUID, limit int) (*models.MemoryPage, error) {
+	return s.memories.GetByUserAndCompanion(ctx, userID, companionID, limit)
 }
 
 // Delete removes a memory, verifying ownership.

@@ -17,6 +17,13 @@ type Memory struct {
 	CreatedAt   time.Time `json:"created_at"`
 }
 
+// MemoryPage represents a paginated page of memories.
+type MemoryPage struct {
+	Memories   []Memory `json:"memories"`
+	NextCursor string   `json:"next_cursor,omitempty"`
+	HasMore    bool     `json:"has_more"`
+}
+
 // CreateMemoryRequest is the payload for creating a new memory.
 type CreateMemoryRequest struct {
 	Content string  `json:"content"`

@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -14,7 +15,7 @@ import (
 // MemoryRepository defines data access operations for memories.
 type MemoryRepository interface {
 	Create(ctx context.Context, memory *models.Memory) error
-	GetByUserAndCompanion(ctx context.Context, userID, companionID uuid.UUID) ([]models.Memory, error)
+	GetByUserAndCompanion(ctx context.Context, userID, companionID uuid.UUID, limit int) (*models.MemoryPage, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*models.Memory, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 	TogglePin(ctx context.Context, id uuid.UUID) (*models.Memory, error)
@@ -40,14 +41,21 @@ func (r *memoryRepo) Create(ctx context.Context, memory *models.Memory) error {
 	).Scan(&memory.CreatedAt)
 }
 
-func (r *memoryRepo) GetByUserAndCompanion(ctx context.Context, userID, companionID uuid.UUID) ([]models.Memory, error) {
+func (r *memoryRepo) GetByUserAndCompanion(ctx context.Context, userID, companionID uuid.UUID, limit int) (*models.MemoryPage, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+
+	fetchLimit := limit + 1
+
 	query := `
 		SELECT id, user_id, companion_id, content, tag, pinned, created_at
 		FROM memories
 		WHERE user_id = $1 AND companion_id = $2
-		ORDER BY pinned DESC, created_at DESC`
+		ORDER BY pinned DESC, created_at DESC
+		LIMIT $3`
 
-	rows, err := r.pool.Query(ctx, query, userID, companionID)
+	rows, err := r.pool.Query(ctx, query, userID, companionID, fetchLimit)
 	if err != nil {
 		return nil, fmt.Errorf("querying memories: %w", err)
 	}
@@ -61,8 +69,24 @@ func (r *memoryRepo) GetByUserAndCompanion(ctx context.Context, userID, companio
 		}
 		memories = append(memories, m)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 
-	return memories, rows.Err()
+	page := &models.MemoryPage{HasMore: false}
+
+	if len(memories) > limit {
+		page.HasMore = true
+		memories = memories[:limit]
+	}
+
+	page.Memories = memories
+	if len(memories) > 0 {
+		last := memories[len(memories)-1].CreatedAt.Format(time.RFC3339Nano)
+		page.NextCursor = last
+	}
+
+	return page, nil
 }
 
 func (r *memoryRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.Memory, error) {
