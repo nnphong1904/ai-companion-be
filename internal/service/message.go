@@ -3,10 +3,12 @@ package service
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
 
+	"ai-companion-be/internal/ai"
 	"ai-companion-be/internal/models"
 	"ai-companion-be/internal/repository"
 )
@@ -16,6 +18,7 @@ type MessageService struct {
 	messages      repository.MessageRepository
 	relationships repository.RelationshipRepository
 	companions    repository.CompanionRepository
+	ai            *ai.Client
 }
 
 // NewMessageService creates a new MessageService.
@@ -23,15 +26,17 @@ func NewMessageService(
 	messages repository.MessageRepository,
 	relationships repository.RelationshipRepository,
 	companions repository.CompanionRepository,
+	aiClient *ai.Client,
 ) *MessageService {
 	return &MessageService{
 		messages:      messages,
 		relationships: relationships,
 		companions:    companions,
+		ai:            aiClient,
 	}
 }
 
-// SendMessage creates a user message, generates a companion reply, and updates the relationship.
+// SendMessage creates a user message, generates a companion reply via OpenAI, and updates the relationship.
 func (s *MessageService) SendMessage(ctx context.Context, userID, companionID uuid.UUID, req models.SendMessageRequest) ([]models.Message, error) {
 	if req.Content == "" {
 		return nil, fmt.Errorf("message content is required")
@@ -49,14 +54,36 @@ func (s *MessageService) SendMessage(ctx context.Context, userID, companionID uu
 		return nil, fmt.Errorf("creating user message: %w", err)
 	}
 
-	// Generate companion reply.
+	// Fetch companion and relationship state.
 	companion, err := s.companions.GetByID(ctx, companionID)
 	if err != nil {
 		return nil, fmt.Errorf("getting companion: %w", err)
 	}
 
 	state, _ := s.relationships.GetByUserAndCompanion(ctx, userID, companionID)
-	reply := generateCompanionReply(companion, state)
+
+	mood := "Neutral"
+	if state != nil {
+		mood = models.GetMoodLabel(state.MoodScore)
+	}
+
+	// Fetch recent conversation history for context (last 20 messages, chronological).
+	page, err := s.messages.GetByConversation(ctx, userID, companionID, nil, 20)
+	var history []models.Message
+	if err == nil && page != nil {
+		// Messages come in DESC order; reverse to chronological for OpenAI.
+		history = make([]models.Message, len(page.Messages))
+		for i, msg := range page.Messages {
+			history[len(page.Messages)-1-i] = msg
+		}
+	}
+
+	// Generate reply via OpenAI.
+	reply, err := s.ai.GenerateReply(ctx, companion, mood, history)
+	if err != nil {
+		slog.Error("openai reply failed, using fallback", "error", err)
+		reply = generateFallbackReply(companion, mood)
+	}
 
 	companionMsg := &models.Message{
 		ID:          uuid.New(),
@@ -84,14 +111,8 @@ func (s *MessageService) GetMessages(ctx context.Context, userID, companionID uu
 	return s.messages.GetByConversation(ctx, userID, companionID, cursor, limit)
 }
 
-// generateCompanionReply produces a simple mood-aware response based on companion personality.
-func generateCompanionReply(companion *models.Companion, state *models.RelationshipState) string {
-	mood := "Neutral"
-	if state != nil {
-		mood = models.GetMoodLabel(state.MoodScore)
-	}
-
-	// Simple personality-based responses keyed by mood.
+// generateFallbackReply produces a simple mood-aware response when OpenAI is unavailable.
+func generateFallbackReply(companion *models.Companion, mood string) string {
 	responses := map[string]map[string]string{
 		"Distant": {
 			"introspective": "...",
@@ -123,8 +144,7 @@ func generateCompanionReply(companion *models.Companion, state *models.Relations
 		},
 	}
 
-	// Find the first matching personality keyword.
-	personalityKey := "nurturing" // default fallback
+	personalityKey := "nurturing"
 	keywords := []string{"introspective", "adventurous", "witty", "nurturing", "playful"}
 	for _, kw := range keywords {
 		if contains(companion.Personality, kw) {

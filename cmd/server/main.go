@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"ai-companion-be/internal/ai"
 	"ai-companion-be/internal/config"
 	"ai-companion-be/internal/database"
 	"ai-companion-be/internal/handler"
@@ -49,11 +50,14 @@ func main() {
 	relationshipRepo := repository.NewRelationshipRepository(pool)
 	memoryRepo := repository.NewMemoryRepository(pool)
 
+	// AI client.
+	aiClient := ai.NewClient(cfg.OpenAI)
+
 	// Services.
 	authSvc := service.NewAuthService(userRepo, cfg.JWT)
 	companionSvc := service.NewCompanionService(companionRepo)
 	storySvc := service.NewStoryService(storyRepo, relationshipRepo)
-	messageSvc := service.NewMessageService(messageRepo, relationshipRepo, companionRepo)
+	messageSvc := service.NewMessageService(messageRepo, relationshipRepo, companionRepo, aiClient)
 	relationshipSvc := service.NewRelationshipService(relationshipRepo)
 	memorySvc := service.NewMemoryService(memoryRepo)
 

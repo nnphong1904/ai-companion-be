@@ -12,6 +12,13 @@ type Config struct {
 	Server   ServerConfig
 	Database DatabaseConfig
 	JWT      JWTConfig
+	OpenAI   OpenAIConfig
+}
+
+// OpenAIConfig holds OpenAI API settings.
+type OpenAIConfig struct {
+	APIKey string
+	Model  string
 }
 
 // ServerConfig holds HTTP server settings.
@@ -86,6 +93,10 @@ func Load() *Config {
 		JWT: JWTConfig{
 			Secret:     getEnv("JWT_SECRET", "change-me-in-production"),
 			Expiration: getEnvDuration("JWT_EXPIRATION", 24*time.Hour),
+		},
+		OpenAI: OpenAIConfig{
+			APIKey: os.Getenv("OPENAI_KEY"),
+			Model:  getEnv("OPENAI_MODEL", "gpt-4o-mini"),
 		},
 	}
 }
