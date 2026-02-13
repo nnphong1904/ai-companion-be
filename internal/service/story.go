@@ -15,11 +15,12 @@ import (
 type StoryService struct {
 	stories       repository.StoryRepository
 	relationships repository.RelationshipRepository
+	insights      repository.InsightsRepository
 }
 
 // NewStoryService creates a new StoryService.
-func NewStoryService(stories repository.StoryRepository, relationships repository.RelationshipRepository) *StoryService {
-	return &StoryService{stories: stories, relationships: relationships}
+func NewStoryService(stories repository.StoryRepository, relationships repository.RelationshipRepository, insights repository.InsightsRepository) *StoryService {
+	return &StoryService{stories: stories, relationships: relationships, insights: insights}
 }
 
 // GetByCompanionID returns all active stories for a companion.
@@ -74,6 +75,9 @@ func (s *StoryService) updateRelationshipOnReaction(ctx context.Context, userID,
 	state.MoodScore = clampScore(state.MoodScore + 3)
 	state.RelationshipScore = clampScore(state.RelationshipScore + 2)
 	_ = s.relationships.Update(ctx, state)
+
+	// Record daily mood snapshot for insights.
+	_ = s.insights.RecordMoodSnapshot(ctx, userID, story.CompanionID, state.MoodScore)
 }
 
 func clampScore(v float64) float64 {

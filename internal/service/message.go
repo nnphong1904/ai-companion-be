@@ -19,6 +19,7 @@ type MessageService struct {
 	relationships repository.RelationshipRepository
 	companions    repository.CompanionRepository
 	ai            *ai.Client
+	insights      repository.InsightsRepository
 }
 
 // NewMessageService creates a new MessageService.
@@ -27,12 +28,14 @@ func NewMessageService(
 	relationships repository.RelationshipRepository,
 	companions repository.CompanionRepository,
 	aiClient *ai.Client,
+	insights repository.InsightsRepository,
 ) *MessageService {
 	return &MessageService{
 		messages:      messages,
 		relationships: relationships,
 		companions:    companions,
 		ai:            aiClient,
+		insights:      insights,
 	}
 }
 
@@ -103,6 +106,9 @@ func (s *MessageService) SendMessage(ctx context.Context, userID, companionID uu
 		state.MoodScore = clampScore(state.MoodScore + 2)
 		state.RelationshipScore = clampScore(state.RelationshipScore + 1)
 		_ = s.relationships.Update(ctx, state)
+
+		// Record daily mood snapshot for insights.
+		_ = s.insights.RecordMoodSnapshot(ctx, userID, companionID, state.MoodScore)
 	}
 
 	return []models.Message{*userMsg, *companionMsg}, nil

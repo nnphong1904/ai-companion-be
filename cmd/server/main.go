@@ -49,6 +49,7 @@ func main() {
 	messageRepo := repository.NewMessageRepository(pool)
 	relationshipRepo := repository.NewRelationshipRepository(pool)
 	memoryRepo := repository.NewMemoryRepository(pool)
+	insightsRepo := repository.NewInsightsRepository(pool)
 
 	// AI client.
 	aiClient := ai.NewClient(cfg.OpenAI)
@@ -56,10 +57,11 @@ func main() {
 	// Services.
 	authSvc := service.NewAuthService(userRepo, cfg.JWT)
 	companionSvc := service.NewCompanionService(companionRepo)
-	storySvc := service.NewStoryService(storyRepo, relationshipRepo)
-	messageSvc := service.NewMessageService(messageRepo, relationshipRepo, companionRepo, aiClient)
+	storySvc := service.NewStoryService(storyRepo, relationshipRepo, insightsRepo)
+	messageSvc := service.NewMessageService(messageRepo, relationshipRepo, companionRepo, aiClient, insightsRepo)
 	relationshipSvc := service.NewRelationshipService(relationshipRepo)
 	memorySvc := service.NewMemoryService(memoryRepo)
+	insightsSvc := service.NewInsightsService(insightsRepo, relationshipRepo)
 
 	// Handlers.
 	authH := handler.NewAuthHandler(authSvc)
@@ -68,9 +70,10 @@ func main() {
 	messageH := handler.NewMessageHandler(messageSvc)
 	relationshipH := handler.NewRelationshipHandler(relationshipSvc)
 	memoryH := handler.NewMemoryHandler(memorySvc)
+	insightsH := handler.NewInsightsHandler(insightsSvc)
 
 	// Router.
-	r := router.New(cfg, authH, companionH, storyH, messageH, relationshipH, memoryH)
+	r := router.New(cfg, authH, companionH, storyH, messageH, relationshipH, memoryH, insightsH)
 
 	// Server.
 	srv := &http.Server{

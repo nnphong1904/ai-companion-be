@@ -23,6 +23,7 @@ func New(
 	messageH *handler.MessageHandler,
 	relationshipH *handler.RelationshipHandler,
 	memoryH *handler.MemoryHandler,
+	insightsH *handler.InsightsHandler,
 ) *chi.Mux {
 	r := chi.NewRouter()
 
@@ -87,6 +88,9 @@ func New(
 			r.Post("/companions/{id}/memories", memoryH.Create)
 			r.Delete("/memories/{id}", memoryH.Delete)
 			r.Patch("/memories/{id}/pin", memoryH.TogglePin)
+
+			// Insights.
+			r.Get("/companions/{id}/insights", insightsH.GetInsights)
 		})
 	})
 
