@@ -63,8 +63,10 @@ func (s *MessageService) SendMessage(ctx context.Context, userID, companionID uu
 	state, _ := s.relationships.GetByUserAndCompanion(ctx, userID, companionID)
 
 	mood := "Neutral"
+	var relationshipScore float64
 	if state != nil {
 		mood = models.GetMoodLabel(state.MoodScore)
+		relationshipScore = state.RelationshipScore
 	}
 
 	// Fetch recent conversation history for context (last 20 messages, chronological).
@@ -79,7 +81,7 @@ func (s *MessageService) SendMessage(ctx context.Context, userID, companionID uu
 	}
 
 	// Generate reply via OpenAI.
-	reply, err := s.ai.GenerateReply(ctx, companion, mood, history)
+	reply, err := s.ai.GenerateReply(ctx, companion, mood, relationshipScore, history)
 	if err != nil {
 		slog.Error("openai reply failed, using fallback", "error", err)
 		reply = generateFallbackReply(companion, mood)
