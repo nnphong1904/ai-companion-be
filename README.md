@@ -10,7 +10,7 @@ Go REST API powering an AI companion social app with Stories, Relationship State
 
 ### Why Go? (First-Time Go Developer)
 
-Go was a requirement for this assessment, and this was my first project in the language. I used AI tools extensively to learn Go idioms, best practices, and the standard library as I built. Rather than fighting the unfamiliarity, I treated it as a learning accelerator — studying each generated pattern, understanding *why* Go does things differently (explicit error handling, interfaces over inheritance, composition over hierarchy), and iterating until the code felt idiomatic rather than "translated from another language."
+Go was a requirement for this assessment, and this was my first project in the language. I used AI tools extensively to learn Go idioms, best practices, and the standard library as I built. Rather than fighting the unfamiliarity, I treated it as a learning accelerator — studying each generated pattern, understanding _why_ Go does things differently (explicit error handling, interfaces over inheritance, composition over hierarchy), and iterating until the code felt idiomatic rather than "translated from another language."
 
 What I learned and why Go was the right choice for this domain:
 
@@ -99,17 +99,17 @@ Memories can optionally reference the source message via `message_id`. This enab
 
 9 tables with Row Level Security on all of them:
 
-| Table | Purpose | Key Index Strategy |
-|---|---|---|
-| `users` | Authentication | Hash index on email for O(1) login lookup |
-| `companions` | AI character profiles | Full table scan (5 rows, cached) |
-| `stories` | Story metadata + expiry | `(companion_id, created_at DESC)` for per-companion feed; joined with `relationship_states` to scope to user's connected companions |
-| `story_media` | Ordered slides within stories | `(story_id, sort_order)` for batch loading |
-| `story_reactions` | Emoji reactions (UPSERT) | `UNIQUE(user_id, media_id)` for atomic upsert |
-| `messages` | Chat history | `(user_id, companion_id, created_at DESC)` for cursor pagination |
-| `relationship_states` | Mood + relationship scores | `UNIQUE(user_id, companion_id)` for single-row lookup |
-| `memories` | Curated moments | `(user_id, companion_id, pinned DESC, created_at DESC)` for pinned-first timeline; partial index on `message_id` for `is_memorized` lookups |
-| `mood_history` | Daily mood snapshots | `(user_id, companion_id, recorded_date)` for trend queries |
+| Table                 | Purpose                       | Key Index Strategy                                                                                                                          |
+| --------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `users`               | Authentication                | Hash index on email for O(1) login lookup                                                                                                   |
+| `companions`          | AI character profiles         | Full table scan (5 rows, cached)                                                                                                            |
+| `stories`             | Story metadata + expiry       | `(companion_id, created_at DESC)` for per-companion feed; joined with `relationship_states` to scope to user's connected companions         |
+| `story_media`         | Ordered slides within stories | `(story_id, sort_order)` for batch loading                                                                                                  |
+| `story_reactions`     | Emoji reactions (UPSERT)      | `UNIQUE(user_id, media_id)` for atomic upsert                                                                                               |
+| `messages`            | Chat history                  | `(user_id, companion_id, created_at DESC)` for cursor pagination                                                                            |
+| `relationship_states` | Mood + relationship scores    | `UNIQUE(user_id, companion_id)` for single-row lookup                                                                                       |
+| `memories`            | Curated moments               | `(user_id, companion_id, pinned DESC, created_at DESC)` for pinned-first timeline; partial index on `message_id` for `is_memorized` lookups |
+| `mood_history`        | Daily mood snapshots          | `(user_id, companion_id, recorded_date)` for trend queries                                                                                  |
 
 ### Scalability Decisions
 
@@ -128,6 +128,7 @@ Every multi-column query has a matching composite index with equality columns fi
 **4. Redundant index elimination**
 
 After the initial schema, I audited every index against actual query patterns and dropped 6 redundant indexes:
+
 - Single-column indexes that were already covered as left-prefixes of composite indexes (e.g., `idx_stories_companion_id` was redundant with `idx_stories_companion_created`)
 - A hash index on email that was redundant with the UNIQUE btree constraint
 - FK indexes on `companion_id` columns where no query ever filters by `companion_id` alone
@@ -141,6 +142,7 @@ Story reactions use `INSERT ... ON CONFLICT (user_id, media_id) DO UPDATE SET re
 **6. Connection pooling with PgBouncer compatibility (Rule 2.3/2.4)**
 
 The database layer explicitly supports Supabase's transaction-mode PgBouncer:
+
 - Disables pgx prepared statement caching (`QueryExecModeExec`)
 - Uses simple protocol to avoid "prepared statement does not exist" errors
 - Maintains a pool of 20 max / 2 min connections
@@ -160,6 +162,7 @@ Every table has Row Level Security policies. User-scoped tables (messages, react
 ## Running Locally
 
 ### Prerequisites
+
 - Go 1.24+ (or Docker)
 - PostgreSQL (or a Supabase project)
 
@@ -192,12 +195,12 @@ The server starts on `:8080` and automatically runs all migrations.
 
 ### Environment Variables
 
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `DATABASE_URL` | Yes | — | PostgreSQL connection string |
-| `JWT_SECRET` | Yes | — | Secret for JWT signing |
-| `OPENAI_KEY` | Yes | — | OpenAI API key |
-| `OPENAI_MODEL` | No | `gpt-4o-mini` | Model for companion responses |
-| `SERVER_PORT` | No | `8080` | HTTP server port |
-| `DB_USE_POOLER` | No | `true` | Enable PgBouncer compatibility |
-| `CORS_ALLOWED_ORIGINS` | No | `http://localhost:3000` | Frontend origin |
+| Variable               | Required | Default                 | Description                    |
+| ---------------------- | -------- | ----------------------- | ------------------------------ |
+| `DATABASE_URL`         | Yes      | —                       | PostgreSQL connection string   |
+| `JWT_SECRET`           | Yes      | —                       | Secret for JWT signing         |
+| `OPENAI_KEY`           | Yes      | —                       | OpenAI API key                 |
+| `OPENAI_MODEL`         | No       | `gpt-4o-mini`           | Model for companion responses  |
+| `SERVER_PORT`          | No       | `8080`                  | HTTP server port               |
+| `DB_USE_POOLER`        | No       | `true`                  | Enable PgBouncer compatibility |
+| `CORS_ALLOWED_ORIGINS` | No       | `http://localhost:3000` | Frontend origin                |
