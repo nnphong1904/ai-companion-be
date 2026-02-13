@@ -2,7 +2,7 @@
 
 Go REST API powering an AI companion social app with Stories, Relationship States, Memories, and Insights.
 
-**Stack:** Go 1.24 &middot; Chi v5 &middot; PostgreSQL (Supabase) &middot; OpenAI GPT-4o-mini
+**Stack:** Go 1.24 &middot; Chi v5 &middot; PostgreSQL (Supabase) &middot; Supabase Storage &middot; OpenAI GPT-4o-mini
 
 ---
 
@@ -71,6 +71,26 @@ The chat system uses GPT-4o-mini with a carefully crafted system prompt that inc
 
 A fallback response matrix handles OpenAI outages — pre-written mood-aware responses keyed by personality trait ensure the companion never goes silent. This is a resilience pattern: the external API dependency is non-blocking for the core UX.
 
+### Supabase Storage for Media Assets
+
+Companion avatars and story media (images, videos) are hosted on Supabase Storage in two public buckets:
+
+- **`avatars`** — AI-generated companion profile images
+- **`stories`** — Story slides organized by companion (`stories/{companion}/{filename}`)
+
+Public read policies allow the frontend to load media directly via CDN URLs without authentication. This avoids proxying binary data through the Go backend and leverages Supabase's edge caching.
+
+### User-Scoped Story Feed
+
+The stories feed (`GET /api/stories`) only returns stories from companions the authenticated user has connected with. This is achieved by joining `stories` with `relationship_states` on `(companion_id, user_id)` at the database level — no application-side filtering needed. Users who haven't selected any companions see an empty feed rather than content from strangers.
+
+### Message–Memory Linking
+
+Memories can optionally reference the source message via `message_id`. This enables two features:
+
+1. **`is_memorized` flag on messages** — The chat history query uses a correlated `EXISTS` subquery against the `memories` table to annotate each message with whether it has been saved as a memory. This avoids a separate API call and keeps the chat UI in sync.
+2. **Traceability** — When a user saves a message as a memory, the FK link preserves the origin. The partial index `idx_memories_message_id WHERE message_id IS NOT NULL` keeps the `EXISTS` lookup fast without indexing the majority of rows where `message_id` is NULL.
+
 ---
 
 ## Database Design & Scalability
@@ -83,12 +103,12 @@ A fallback response matrix handles OpenAI outages — pre-written mood-aware res
 |---|---|---|
 | `users` | Authentication | Hash index on email for O(1) login lookup |
 | `companions` | AI character profiles | Full table scan (5 rows, cached) |
-| `stories` | Story metadata + expiry | `(companion_id, created_at DESC)` for per-companion feed; `(created_at DESC)` for global paginated feed |
+| `stories` | Story metadata + expiry | `(companion_id, created_at DESC)` for per-companion feed; joined with `relationship_states` to scope to user's connected companions |
 | `story_media` | Ordered slides within stories | `(story_id, sort_order)` for batch loading |
 | `story_reactions` | Emoji reactions (UPSERT) | `UNIQUE(user_id, media_id)` for atomic upsert |
 | `messages` | Chat history | `(user_id, companion_id, created_at DESC)` for cursor pagination |
 | `relationship_states` | Mood + relationship scores | `UNIQUE(user_id, companion_id)` for single-row lookup |
-| `memories` | Curated moments | `(user_id, companion_id, pinned DESC, created_at DESC)` for pinned-first timeline |
+| `memories` | Curated moments | `(user_id, companion_id, pinned DESC, created_at DESC)` for pinned-first timeline; partial index on `message_id` for `is_memorized` lookups |
 | `mood_history` | Daily mood snapshots | `(user_id, companion_id, recorded_date)` for trend queries |
 
 ### Scalability Decisions
@@ -140,22 +160,31 @@ Every table has Row Level Security policies. User-scoped tables (messages, react
 ## Running Locally
 
 ### Prerequisites
-- Go 1.24+
+- Go 1.24+ (or Docker)
 - PostgreSQL (or a Supabase project)
 
 ### Setup
 
 ```bash
-# Clone and install dependencies
+# Clone and configure
 git clone <repo-url>
 cd ai-companion-be
-go mod download
-
-# Configure environment
 cp .env.example .env
 # Edit .env with your database URL, JWT secret, and OpenAI key
+```
 
-# Run
+### Option 1: Docker (Recommended)
+
+```bash
+docker compose up --build
+```
+
+This builds a multi-stage Alpine image (~15MB) and starts the server on `:8080` with automatic health checks. The container reads all config from your `.env` file.
+
+### Option 2: Without Docker
+
+```bash
+go mod download
 make run
 ```
 

@@ -33,9 +33,9 @@ func (s *StoryService) GetActiveStories(ctx context.Context, cursor *time.Time, 
 	return s.stories.GetActiveStories(ctx, cursor, limit)
 }
 
-// GetActiveStoriesGrouped returns active stories grouped by companion.
-func (s *StoryService) GetActiveStoriesGrouped(ctx context.Context) (*models.GroupedStoryPage, error) {
-	return s.stories.GetActiveStoriesGrouped(ctx)
+// GetActiveStoriesGrouped returns active stories grouped by companion the user is connected to.
+func (s *StoryService) GetActiveStoriesGrouped(ctx context.Context, userID uuid.UUID) (*models.GroupedStoryPage, error) {
+	return s.stories.GetActiveStoriesGrouped(ctx, userID)
 }
 
 // ReactToStory records a user's reaction and updates the relationship state.

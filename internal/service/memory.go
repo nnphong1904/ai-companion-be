@@ -30,6 +30,7 @@ func (s *MemoryService) Create(ctx context.Context, userID, companionID uuid.UUI
 		ID:          uuid.New(),
 		UserID:      userID,
 		CompanionID: companionID,
+		MessageID:   req.MessageID,
 		Content:     req.Content,
 		Tag:         req.Tag,
 		Pinned:      false,

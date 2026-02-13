@@ -17,7 +17,7 @@ type StoryRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*models.Story, error)
 	GetByCompanionID(ctx context.Context, companionID uuid.UUID) ([]models.Story, error)
 	GetActiveStories(ctx context.Context, cursor *time.Time, limit int) (*models.StoryPage, error)
-	GetActiveStoriesGrouped(ctx context.Context) (*models.GroupedStoryPage, error)
+	GetActiveStoriesGrouped(ctx context.Context, userID uuid.UUID) (*models.GroupedStoryPage, error)
 	CreateReaction(ctx context.Context, reaction *models.StoryReaction) error
 }
 
@@ -143,16 +143,17 @@ func (r *storyRepo) GetActiveStories(ctx context.Context, cursor *time.Time, lim
 	return page, nil
 }
 
-func (r *storyRepo) GetActiveStoriesGrouped(ctx context.Context) (*models.GroupedStoryPage, error) {
+func (r *storyRepo) GetActiveStoriesGrouped(ctx context.Context, userID uuid.UUID) (*models.GroupedStoryPage, error) {
 	query := `
 		SELECT s.id, s.companion_id, s.created_at, s.expires_at,
 		       c.name, c.avatar_url
 		FROM stories s
 		JOIN companions c ON c.id = s.companion_id
+		JOIN relationship_states rs ON rs.companion_id = s.companion_id AND rs.user_id = $1
 		WHERE s.expires_at > NOW()
 		ORDER BY s.created_at DESC`
 
-	rows, err := r.pool.Query(ctx, query)
+	rows, err := r.pool.Query(ctx, query, userID)
 	if err != nil {
 		return nil, fmt.Errorf("querying active stories grouped: %w", err)
 	}

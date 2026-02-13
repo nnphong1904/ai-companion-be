@@ -32,12 +32,19 @@ func NewMemoryRepository(pool *pgxpool.Pool) MemoryRepository {
 
 func (r *memoryRepo) Create(ctx context.Context, memory *models.Memory) error {
 	query := `
-		INSERT INTO memories (id, user_id, companion_id, content, tag, pinned, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, NOW())
+		INSERT INTO memories (id, user_id, companion_id, message_id, content, tag, pinned, created_at)
+		VALUES ($1, $2, $3, $4::uuid, $5, $6, $7, NOW())
 		RETURNING created_at`
 
+	// Convert *uuid.UUID to *string for PgBouncer simple-protocol compatibility.
+	var messageID *string
+	if memory.MessageID != nil {
+		s := memory.MessageID.String()
+		messageID = &s
+	}
+
 	return r.pool.QueryRow(ctx, query,
-		memory.ID, memory.UserID, memory.CompanionID, memory.Content, memory.Tag, memory.Pinned,
+		memory.ID, memory.UserID, memory.CompanionID, messageID, memory.Content, memory.Tag, memory.Pinned,
 	).Scan(&memory.CreatedAt)
 }
 
@@ -49,7 +56,7 @@ func (r *memoryRepo) GetByUserAndCompanion(ctx context.Context, userID, companio
 	fetchLimit := limit + 1
 
 	query := `
-		SELECT id, user_id, companion_id, content, tag, pinned, created_at
+		SELECT id, user_id, companion_id, message_id, content, tag, pinned, created_at
 		FROM memories
 		WHERE user_id = $1 AND companion_id = $2
 		ORDER BY pinned DESC, created_at DESC
@@ -64,7 +71,7 @@ func (r *memoryRepo) GetByUserAndCompanion(ctx context.Context, userID, companio
 	var memories []models.Memory
 	for rows.Next() {
 		var m models.Memory
-		if err := rows.Scan(&m.ID, &m.UserID, &m.CompanionID, &m.Content, &m.Tag, &m.Pinned, &m.CreatedAt); err != nil {
+		if err := rows.Scan(&m.ID, &m.UserID, &m.CompanionID, &m.MessageID, &m.Content, &m.Tag, &m.Pinned, &m.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scanning memory: %w", err)
 		}
 		memories = append(memories, m)
@@ -90,11 +97,11 @@ func (r *memoryRepo) GetByUserAndCompanion(ctx context.Context, userID, companio
 }
 
 func (r *memoryRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.Memory, error) {
-	query := `SELECT id, user_id, companion_id, content, tag, pinned, created_at FROM memories WHERE id = $1`
+	query := `SELECT id, user_id, companion_id, message_id, content, tag, pinned, created_at FROM memories WHERE id = $1`
 
 	var m models.Memory
 	err := r.pool.QueryRow(ctx, query, id).
-		Scan(&m.ID, &m.UserID, &m.CompanionID, &m.Content, &m.Tag, &m.Pinned, &m.CreatedAt)
+		Scan(&m.ID, &m.UserID, &m.CompanionID, &m.MessageID, &m.Content, &m.Tag, &m.Pinned, &m.CreatedAt)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, fmt.Errorf("memory not found")
@@ -121,11 +128,11 @@ func (r *memoryRepo) TogglePin(ctx context.Context, id uuid.UUID) (*models.Memor
 	query := `
 		UPDATE memories SET pinned = NOT pinned
 		WHERE id = $1
-		RETURNING id, user_id, companion_id, content, tag, pinned, created_at`
+		RETURNING id, user_id, companion_id, message_id, content, tag, pinned, created_at`
 
 	var m models.Memory
 	err := r.pool.QueryRow(ctx, query, id).
-		Scan(&m.ID, &m.UserID, &m.CompanionID, &m.Content, &m.Tag, &m.Pinned, &m.CreatedAt)
+		Scan(&m.ID, &m.UserID, &m.CompanionID, &m.MessageID, &m.Content, &m.Tag, &m.Pinned, &m.CreatedAt)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, fmt.Errorf("memory not found")

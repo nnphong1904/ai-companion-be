@@ -50,18 +50,20 @@ func (r *messageRepo) GetByConversation(ctx context.Context, userID, companionID
 
 	if cursor != nil {
 		query = `
-			SELECT id, user_id, companion_id, content, role, created_at
-			FROM messages
-			WHERE user_id = $1 AND companion_id = $2 AND created_at < $3
-			ORDER BY created_at DESC
+			SELECT m.id, m.user_id, m.companion_id, m.content, m.role, m.created_at,
+			       (EXISTS(SELECT 1 FROM memories mem WHERE mem.message_id = m.id)) AS is_memorized
+			FROM messages m
+			WHERE m.user_id = $1 AND m.companion_id = $2 AND m.created_at < $3
+			ORDER BY m.created_at DESC
 			LIMIT $4`
 		args = []any{userID, companionID, *cursor, fetchLimit}
 	} else {
 		query = `
-			SELECT id, user_id, companion_id, content, role, created_at
-			FROM messages
-			WHERE user_id = $1 AND companion_id = $2
-			ORDER BY created_at DESC
+			SELECT m.id, m.user_id, m.companion_id, m.content, m.role, m.created_at,
+			       (EXISTS(SELECT 1 FROM memories mem WHERE mem.message_id = m.id)) AS is_memorized
+			FROM messages m
+			WHERE m.user_id = $1 AND m.companion_id = $2
+			ORDER BY m.created_at DESC
 			LIMIT $3`
 		args = []any{userID, companionID, fetchLimit}
 	}
@@ -75,7 +77,7 @@ func (r *messageRepo) GetByConversation(ctx context.Context, userID, companionID
 	var messages []models.Message
 	for rows.Next() {
 		var m models.Message
-		if err := rows.Scan(&m.ID, &m.UserID, &m.CompanionID, &m.Content, &m.Role, &m.CreatedAt); err != nil {
+		if err := rows.Scan(&m.ID, &m.UserID, &m.CompanionID, &m.Content, &m.Role, &m.CreatedAt, &m.IsMemorized); err != nil {
 			return nil, fmt.Errorf("scanning message: %w", err)
 		}
 		messages = append(messages, m)

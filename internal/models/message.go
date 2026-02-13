@@ -14,6 +14,7 @@ type Message struct {
 	Content     string    `json:"content"`
 	Role        string    `json:"role"` // "user" or "companion"
 	CreatedAt   time.Time `json:"created_at"`
+	IsMemorized bool      `json:"is_memorized"`
 }
 
 // SendMessageRequest is the payload for sending a chat message.

@@ -25,7 +25,9 @@ func NewStoryHandler(stories *service.StoryService) *StoryHandler {
 
 // GetActiveStories handles GET /api/stories — returns stories grouped by companion.
 func (h *StoryHandler) GetActiveStories(w http.ResponseWriter, r *http.Request) {
-	page, err := h.stories.GetActiveStoriesGrouped(r.Context())
+	userID := middleware.GetUserID(r.Context())
+
+	page, err := h.stories.GetActiveStoriesGrouped(r.Context(), userID)
 	if err != nil {
 		slog.Error("GetActiveStories failed", "error", err)
 		Error(w, http.StatusInternalServerError, "failed to fetch stories")

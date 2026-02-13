@@ -1,103 +1,90 @@
--- Seed stories and story media for each companion.
--- Each companion gets 2–3 stories with 2–4 media slides.
--- Stories expire 30 days from migration run so they stay active.
+-- Seed stories with Supabase Storage assets.
+-- Uses deterministic UUIDs + ON CONFLICT to prevent duplicates on re-run.
 
--- ===================
--- Luna — stargazing & poetry
--- ===================
+-- ===== STORIES =====
 INSERT INTO stories (id, companion_id, created_at, expires_at) VALUES
-('b1000000-0001-4000-8000-000000000001', 'a1b2c3d4-0001-4000-8000-000000000001', now() - interval '2 hours',  now() + interval '30 days'),
-('b1000000-0001-4000-8000-000000000002', 'a1b2c3d4-0001-4000-8000-000000000001', now() - interval '30 minutes', now() + interval '30 days')
+-- Luna
+('b1000000-0001-4000-8000-000000000001', 'a1b2c3d4-0001-4000-8000-000000000001', NOW() - INTERVAL '2 hours', NOW() + INTERVAL '22 hours'),
+('b1000000-0001-4000-8000-000000000002', 'a1b2c3d4-0001-4000-8000-000000000001', NOW() - INTERVAL '1 hour',  NOW() + INTERVAL '23 hours'),
+-- Kai
+('b1000000-0002-4000-8000-000000000001', 'a1b2c3d4-0002-4000-8000-000000000002', NOW() - INTERVAL '3 hours', NOW() + INTERVAL '21 hours'),
+('b1000000-0002-4000-8000-000000000002', 'a1b2c3d4-0002-4000-8000-000000000002', NOW() - INTERVAL '30 minutes', NOW() + INTERVAL '23 hours 30 minutes'),
+-- Nova
+('b1000000-0003-4000-8000-000000000001', 'a1b2c3d4-0003-4000-8000-000000000003', NOW() - INTERVAL '4 hours', NOW() + INTERVAL '20 hours'),
+('b1000000-0003-4000-8000-000000000002', 'a1b2c3d4-0003-4000-8000-000000000003', NOW() - INTERVAL '1 hour',  NOW() + INTERVAL '23 hours'),
+-- Ember
+('b1000000-0004-4000-8000-000000000001', 'a1b2c3d4-0004-4000-8000-000000000004', NOW() - INTERVAL '5 hours', NOW() + INTERVAL '19 hours'),
+('b1000000-0004-4000-8000-000000000002', 'a1b2c3d4-0004-4000-8000-000000000004', NOW() - INTERVAL '2 hours', NOW() + INTERVAL '22 hours'),
+-- Zephyr
+('b1000000-0005-4000-8000-000000000001', 'a1b2c3d4-0005-4000-8000-000000000005', NOW() - INTERVAL '6 hours', NOW() + INTERVAL '18 hours'),
+('b1000000-0005-4000-8000-000000000002', 'a1b2c3d4-0005-4000-8000-000000000005', NOW() - INTERVAL '45 minutes', NOW() + INTERVAL '23 hours 15 minutes')
 ON CONFLICT (id) DO NOTHING;
 
+-- ===== STORY MEDIA (deterministic IDs to prevent duplicates) =====
+-- Luna Story 1: 5 images (meets 4+ requirement)
 INSERT INTO story_media (id, story_id, media_url, media_type, duration, sort_order) VALUES
--- Luna story 1: stargazing night
-('c1000000-0001-4000-8000-000000000001', 'b1000000-0001-4000-8000-000000000001', 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800', 'image', 5, 0),
-('c1000000-0001-4000-8000-000000000002', 'b1000000-0001-4000-8000-000000000001', 'https://images.unsplash.com/photo-1507400492013-162706c8c05e?w=800', 'image', 5, 1),
-('c1000000-0001-4000-8000-000000000003', 'b1000000-0001-4000-8000-000000000001', 'https://images.unsplash.com/photo-1444703686981-a3abbc4d4fe3?w=800', 'image', 5, 2),
--- Luna story 2: poetry & books
-('c1000000-0001-4000-8000-000000000004', 'b1000000-0001-4000-8000-000000000002', 'https://images.unsplash.com/photo-1512820790803-83ca734da794?w=800', 'image', 5, 0),
-('c1000000-0001-4000-8000-000000000005', 'b1000000-0001-4000-8000-000000000002', 'https://images.unsplash.com/photo-1532012197267-da84d127e765?w=800', 'image', 5, 1)
+('c1000000-0001-4000-8000-000000000001', 'b1000000-0001-4000-8000-000000000001', 'https://wiyiltwuiplfenhbpgsg.supabase.co/storage/v1/object/public/stories/luna/luna-1.png', 'image', 5, 1),
+('c1000000-0001-4000-8000-000000000002', 'b1000000-0001-4000-8000-000000000001', 'https://wiyiltwuiplfenhbpgsg.supabase.co/storage/v1/object/public/stories/luna/luna-2.png', 'image', 5, 2),
+('c1000000-0001-4000-8000-000000000003', 'b1000000-0001-4000-8000-000000000001', 'https://wiyiltwuiplfenhbpgsg.supabase.co/storage/v1/object/public/stories/luna/luna-3.jpeg', 'image', 5, 3),
+('c1000000-0001-4000-8000-000000000004', 'b1000000-0001-4000-8000-000000000001', 'https://wiyiltwuiplfenhbpgsg.supabase.co/storage/v1/object/public/stories/luna/luna-4.jpeg', 'image', 5, 4),
+('c1000000-0001-4000-8000-000000000005', 'b1000000-0001-4000-8000-000000000001', 'https://wiyiltwuiplfenhbpgsg.supabase.co/storage/v1/object/public/stories/luna/luna-5.jpeg', 'image', 5, 5)
 ON CONFLICT (id) DO NOTHING;
 
--- ===================
--- Kai — adventure & surfing
--- ===================
-INSERT INTO stories (id, companion_id, created_at, expires_at) VALUES
-('b1000000-0002-4000-8000-000000000001', 'a1b2c3d4-0002-4000-8000-000000000002', now() - interval '3 hours',  now() + interval '30 days'),
-('b1000000-0002-4000-8000-000000000002', 'a1b2c3d4-0002-4000-8000-000000000002', now() - interval '1 hour',   now() + interval '30 days'),
-('b1000000-0002-4000-8000-000000000003', 'a1b2c3d4-0002-4000-8000-000000000002', now() - interval '15 minutes', now() + interval '30 days')
-ON CONFLICT (id) DO NOTHING;
-
+-- Luna Story 2: 1 video
 INSERT INTO story_media (id, story_id, media_url, media_type, duration, sort_order) VALUES
--- Kai story 1: mountain hiking
-('c1000000-0002-4000-8000-000000000001', 'b1000000-0002-4000-8000-000000000001', 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=800', 'image', 5, 0),
-('c1000000-0002-4000-8000-000000000002', 'b1000000-0002-4000-8000-000000000001', 'https://images.unsplash.com/photo-1551632811-561732d1e306?w=800', 'image', 5, 1),
-('c1000000-0002-4000-8000-000000000003', 'b1000000-0002-4000-8000-000000000001', 'https://images.unsplash.com/photo-1483728642387-6c3bdd6c93e5?w=800', 'image', 5, 2),
--- Kai story 2: beach day
-('c1000000-0002-4000-8000-000000000004', 'b1000000-0002-4000-8000-000000000002', 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800', 'image', 5, 0),
-('c1000000-0002-4000-8000-000000000005', 'b1000000-0002-4000-8000-000000000002', 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=800', 'image', 5, 1),
--- Kai story 3: campfire at night
-('c1000000-0002-4000-8000-000000000006', 'b1000000-0002-4000-8000-000000000003', 'https://images.unsplash.com/photo-1475483768296-6160d8298b31?w=800', 'image', 5, 0),
-('c1000000-0002-4000-8000-000000000007', 'b1000000-0002-4000-8000-000000000003', 'https://images.unsplash.com/photo-1504851149312-7a075b496cc7?w=800', 'image', 5, 1)
+('c1000000-0001-4000-8000-000000000006', 'b1000000-0001-4000-8000-000000000002', 'https://wiyiltwuiplfenhbpgsg.supabase.co/storage/v1/object/public/stories/luna/luna-video-1.mp4', 'video', 10, 1)
 ON CONFLICT (id) DO NOTHING;
 
--- ===================
--- Nova — city & science
--- ===================
-INSERT INTO stories (id, companion_id, created_at, expires_at) VALUES
-('b1000000-0003-4000-8000-000000000001', 'a1b2c3d4-0003-4000-8000-000000000003', now() - interval '4 hours',  now() + interval '30 days'),
-('b1000000-0003-4000-8000-000000000002', 'a1b2c3d4-0003-4000-8000-000000000003', now() - interval '45 minutes', now() + interval '30 days')
-ON CONFLICT (id) DO NOTHING;
-
+-- Kai Story 1: 4 images (meets 4+ requirement)
 INSERT INTO story_media (id, story_id, media_url, media_type, duration, sort_order) VALUES
--- Nova story 1: city exploration
-('c1000000-0003-4000-8000-000000000001', 'b1000000-0003-4000-8000-000000000001', 'https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?w=800', 'image', 5, 0),
-('c1000000-0003-4000-8000-000000000002', 'b1000000-0003-4000-8000-000000000001', 'https://images.unsplash.com/photo-1514565131-fce0801e5785?w=800', 'image', 5, 1),
-('c1000000-0003-4000-8000-000000000003', 'b1000000-0003-4000-8000-000000000001', 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?w=800', 'image', 5, 2),
--- Nova story 2: tech & science
-('c1000000-0003-4000-8000-000000000004', 'b1000000-0003-4000-8000-000000000002', 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=800', 'image', 5, 0),
-('c1000000-0003-4000-8000-000000000005', 'b1000000-0003-4000-8000-000000000002', 'https://images.unsplash.com/photo-1507413245164-6160d8298b31?w=800', 'image', 5, 1),
-('c1000000-0003-4000-8000-000000000006', 'b1000000-0003-4000-8000-000000000002', 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800', 'image', 5, 2)
+('c1000000-0002-4000-8000-000000000001', 'b1000000-0002-4000-8000-000000000001', 'https://wiyiltwuiplfenhbpgsg.supabase.co/storage/v1/object/public/stories/kai/kai-1.png', 'image', 5, 1),
+('c1000000-0002-4000-8000-000000000002', 'b1000000-0002-4000-8000-000000000001', 'https://wiyiltwuiplfenhbpgsg.supabase.co/storage/v1/object/public/stories/kai/kai-2.png', 'image', 5, 2),
+('c1000000-0002-4000-8000-000000000003', 'b1000000-0002-4000-8000-000000000001', 'https://wiyiltwuiplfenhbpgsg.supabase.co/storage/v1/object/public/stories/kai/kai-3.jpeg', 'image', 5, 3),
+('c1000000-0002-4000-8000-000000000004', 'b1000000-0002-4000-8000-000000000001', 'https://wiyiltwuiplfenhbpgsg.supabase.co/storage/v1/object/public/stories/kai/kai-4.jpeg', 'image', 5, 4)
 ON CONFLICT (id) DO NOTHING;
 
--- ===================
--- Ember — cooking & garden
--- ===================
-INSERT INTO stories (id, companion_id, created_at, expires_at) VALUES
-('b1000000-0004-4000-8000-000000000001', 'a1b2c3d4-0004-4000-8000-000000000004', now() - interval '5 hours',  now() + interval '30 days'),
-('b1000000-0004-4000-8000-000000000002', 'a1b2c3d4-0004-4000-8000-000000000004', now() - interval '1 hour',   now() + interval '30 days')
-ON CONFLICT (id) DO NOTHING;
-
+-- Kai Story 2: 2 videos
 INSERT INTO story_media (id, story_id, media_url, media_type, duration, sort_order) VALUES
--- Ember story 1: baking & cooking
-('c1000000-0004-4000-8000-000000000001', 'b1000000-0004-4000-8000-000000000001', 'https://images.unsplash.com/photo-1556909114-f6e147245754?w=800', 'image', 5, 0),
-('c1000000-0004-4000-8000-000000000002', 'b1000000-0004-4000-8000-000000000001', 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=800', 'image', 5, 1),
-('c1000000-0004-4000-8000-000000000003', 'b1000000-0004-4000-8000-000000000001', 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=800', 'image', 5, 2),
--- Ember story 2: garden & flowers
-('c1000000-0004-4000-8000-000000000004', 'b1000000-0004-4000-8000-000000000002', 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=800', 'image', 5, 0),
-('c1000000-0004-4000-8000-000000000005', 'b1000000-0004-4000-8000-000000000002', 'https://images.unsplash.com/photo-1455659817273-f96807779a8a?w=800', 'image', 5, 1)
+('c1000000-0002-4000-8000-000000000005', 'b1000000-0002-4000-8000-000000000002', 'https://wiyiltwuiplfenhbpgsg.supabase.co/storage/v1/object/public/stories/kai/kai-video-1.mp4', 'video', 10, 1),
+('c1000000-0002-4000-8000-000000000006', 'b1000000-0002-4000-8000-000000000002', 'https://wiyiltwuiplfenhbpgsg.supabase.co/storage/v1/object/public/stories/kai/kai-video-2.mp4', 'video', 10, 2)
 ON CONFLICT (id) DO NOTHING;
 
--- ===================
--- Zephyr — street art & festival
--- ===================
-INSERT INTO stories (id, companion_id, created_at, expires_at) VALUES
-('b1000000-0005-4000-8000-000000000001', 'a1b2c3d4-0005-4000-8000-000000000005', now() - interval '6 hours',  now() + interval '30 days'),
-('b1000000-0005-4000-8000-000000000002', 'a1b2c3d4-0005-4000-8000-000000000005', now() - interval '20 minutes', now() + interval '30 days'),
-('b1000000-0005-4000-8000-000000000003', 'a1b2c3d4-0005-4000-8000-000000000005', now() - interval '5 minutes',  now() + interval '30 days')
-ON CONFLICT (id) DO NOTHING;
-
+-- Nova Story 1: 4 images (meets 4+ requirement)
 INSERT INTO story_media (id, story_id, media_url, media_type, duration, sort_order) VALUES
--- Zephyr story 1: street art
-('c1000000-0005-4000-8000-000000000001', 'b1000000-0005-4000-8000-000000000001', 'https://images.unsplash.com/photo-1535332371349-a5d229f49cb5?w=800', 'image', 5, 0),
-('c1000000-0005-4000-8000-000000000002', 'b1000000-0005-4000-8000-000000000001', 'https://images.unsplash.com/photo-1460661419201-fd4cecdf8a8b?w=800', 'image', 5, 1),
-('c1000000-0005-4000-8000-000000000003', 'b1000000-0005-4000-8000-000000000001', 'https://images.unsplash.com/photo-1551913902-c92207136625?w=800', 'image', 5, 2),
--- Zephyr story 2: music festival
-('c1000000-0005-4000-8000-000000000004', 'b1000000-0005-4000-8000-000000000002', 'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=800', 'image', 5, 0),
-('c1000000-0005-4000-8000-000000000005', 'b1000000-0005-4000-8000-000000000002', 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=800', 'image', 5, 1),
-('c1000000-0005-4000-8000-000000000006', 'b1000000-0005-4000-8000-000000000002', 'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=800', 'image', 5, 2),
--- Zephyr story 3: skateboarding & vibes
-('c1000000-0005-4000-8000-000000000007', 'b1000000-0005-4000-8000-000000000003', 'https://images.unsplash.com/photo-1531243269054-5ebf6f34081e?w=800', 'image', 5, 0),
-('c1000000-0005-4000-8000-000000000008', 'b1000000-0005-4000-8000-000000000003', 'https://images.unsplash.com/photo-1547447134-cd3f5c716030?w=800', 'image', 5, 1)
+('c1000000-0003-4000-8000-000000000001', 'b1000000-0003-4000-8000-000000000001', 'https://wiyiltwuiplfenhbpgsg.supabase.co/storage/v1/object/public/stories/nova/nova-1.png', 'image', 5, 1),
+('c1000000-0003-4000-8000-000000000002', 'b1000000-0003-4000-8000-000000000001', 'https://wiyiltwuiplfenhbpgsg.supabase.co/storage/v1/object/public/stories/nova/nova-2.jpeg', 'image', 5, 2),
+('c1000000-0003-4000-8000-000000000003', 'b1000000-0003-4000-8000-000000000001', 'https://wiyiltwuiplfenhbpgsg.supabase.co/storage/v1/object/public/stories/nova/nova-3.jpeg', 'image', 5, 3),
+('c1000000-0003-4000-8000-000000000004', 'b1000000-0003-4000-8000-000000000001', 'https://wiyiltwuiplfenhbpgsg.supabase.co/storage/v1/object/public/stories/nova/nova-4.webp', 'image', 5, 4)
+ON CONFLICT (id) DO NOTHING;
+
+-- Nova Story 2: 2 videos
+INSERT INTO story_media (id, story_id, media_url, media_type, duration, sort_order) VALUES
+('c1000000-0003-4000-8000-000000000005', 'b1000000-0003-4000-8000-000000000002', 'https://wiyiltwuiplfenhbpgsg.supabase.co/storage/v1/object/public/stories/nova/nova-video-1.mp4', 'video', 10, 1),
+('c1000000-0003-4000-8000-000000000006', 'b1000000-0003-4000-8000-000000000002', 'https://wiyiltwuiplfenhbpgsg.supabase.co/storage/v1/object/public/stories/nova/nova-video-2.mp4', 'video', 10, 2)
+ON CONFLICT (id) DO NOTHING;
+
+-- Ember Story 1: 3 images
+INSERT INTO story_media (id, story_id, media_url, media_type, duration, sort_order) VALUES
+('c1000000-0004-4000-8000-000000000001', 'b1000000-0004-4000-8000-000000000001', 'https://wiyiltwuiplfenhbpgsg.supabase.co/storage/v1/object/public/stories/ember/ember-1.png', 'image', 5, 1),
+('c1000000-0004-4000-8000-000000000002', 'b1000000-0004-4000-8000-000000000001', 'https://wiyiltwuiplfenhbpgsg.supabase.co/storage/v1/object/public/stories/ember/ember-2.png', 'image', 5, 2),
+('c1000000-0004-4000-8000-000000000003', 'b1000000-0004-4000-8000-000000000001', 'https://wiyiltwuiplfenhbpgsg.supabase.co/storage/v1/object/public/stories/ember/ember-3.jpeg', 'image', 5, 3)
+ON CONFLICT (id) DO NOTHING;
+
+-- Ember Story 2: 2 videos
+INSERT INTO story_media (id, story_id, media_url, media_type, duration, sort_order) VALUES
+('c1000000-0004-4000-8000-000000000004', 'b1000000-0004-4000-8000-000000000002', 'https://wiyiltwuiplfenhbpgsg.supabase.co/storage/v1/object/public/stories/ember/ember-video-1.mp4', 'video', 10, 1),
+('c1000000-0004-4000-8000-000000000005', 'b1000000-0004-4000-8000-000000000002', 'https://wiyiltwuiplfenhbpgsg.supabase.co/storage/v1/object/public/stories/ember/ember-video-2.mp4', 'video', 10, 2)
+ON CONFLICT (id) DO NOTHING;
+
+-- Zephyr Story 1: 3 images
+INSERT INTO story_media (id, story_id, media_url, media_type, duration, sort_order) VALUES
+('c1000000-0005-4000-8000-000000000001', 'b1000000-0005-4000-8000-000000000001', 'https://wiyiltwuiplfenhbpgsg.supabase.co/storage/v1/object/public/stories/zephyr/zephyr-1.png', 'image', 5, 1),
+('c1000000-0005-4000-8000-000000000002', 'b1000000-0005-4000-8000-000000000001', 'https://wiyiltwuiplfenhbpgsg.supabase.co/storage/v1/object/public/stories/zephyr/zephyr-2.png', 'image', 5, 2),
+('c1000000-0005-4000-8000-000000000003', 'b1000000-0005-4000-8000-000000000001', 'https://wiyiltwuiplfenhbpgsg.supabase.co/storage/v1/object/public/stories/zephyr/zephyr-3.png', 'image', 5, 3)
+ON CONFLICT (id) DO NOTHING;
+
+-- Zephyr Story 2: 2 videos
+INSERT INTO story_media (id, story_id, media_url, media_type, duration, sort_order) VALUES
+('c1000000-0005-4000-8000-000000000004', 'b1000000-0005-4000-8000-000000000002', 'https://wiyiltwuiplfenhbpgsg.supabase.co/storage/v1/object/public/stories/zephyr/zephyr-video-1.mp4', 'video', 10, 1),
+('c1000000-0005-4000-8000-000000000005', 'b1000000-0005-4000-8000-000000000002', 'https://wiyiltwuiplfenhbpgsg.supabase.co/storage/v1/object/public/stories/zephyr/zephyr-video-2.mp4', 'video', 10, 2)
 ON CONFLICT (id) DO NOTHING;
