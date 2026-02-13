@@ -1,0 +1,11 @@
+.git
+.gitignore
+.env
+.env.example
+.tool-versions
+.mcp.json
+bin/
+*.md
+Makefile
+docker-compose.yml
+.dockerignore
