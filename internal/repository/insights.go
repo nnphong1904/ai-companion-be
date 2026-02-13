@@ -17,6 +17,7 @@ type InsightsRepository interface {
 	GetMoodHistory(ctx context.Context, userID, companionID uuid.UUID, days int) ([]models.MoodSnapshot, error)
 	GetMessageDates(ctx context.Context, userID, companionID uuid.UUID) ([]time.Time, error)
 	GetStats(ctx context.Context, userID, companionID uuid.UUID) (*models.InsightStats, error)
+	GetReactionSummary(ctx context.Context, userID, companionID uuid.UUID) (*models.ReactionSummary, error)
 }
 
 type insightsRepo struct {
@@ -120,4 +121,88 @@ func (r *insightsRepo) GetStats(ctx context.Context, userID, companionID uuid.UU
 	}
 
 	return &stats, nil
+}
+
+func (r *insightsRepo) GetReactionSummary(ctx context.Context, userID, companionID uuid.UUID) (*models.ReactionSummary, error) {
+	// Counts by reaction type.
+	countsQuery := `
+		SELECT sr.reaction, COUNT(*) AS count
+		FROM story_reactions sr
+		JOIN story_media sm ON sr.media_id = sm.id
+		JOIN stories s ON sm.story_id = s.id
+		WHERE sr.user_id = $1 AND s.companion_id = $2
+		GROUP BY sr.reaction`
+
+	rows, err := r.pool.Query(ctx, countsQuery, userID, companionID)
+	if err != nil {
+		return nil, fmt.Errorf("querying reaction counts: %w", err)
+	}
+	defer rows.Close()
+
+	counts := map[string]int{
+		"love":       0,
+		"sad":        0,
+		"heart_eyes": 0,
+		"angry":      0,
+	}
+	total := 0
+
+	for rows.Next() {
+		var reaction string
+		var count int
+		if err := rows.Scan(&reaction, &count); err != nil {
+			return nil, fmt.Errorf("scanning reaction count: %w", err)
+		}
+		counts[reaction] = count
+		total += count
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating reaction counts: %w", err)
+	}
+
+	// Dominant emotion.
+	var dominant *string
+	maxCount := 0
+	for reaction, count := range counts {
+		if count > maxCount {
+			maxCount = count
+			r := reaction
+			dominant = &r
+		}
+	}
+
+	// Recent reactions.
+	recentQuery := `
+		SELECT sr.reaction, sr.created_at
+		FROM story_reactions sr
+		JOIN story_media sm ON sr.media_id = sm.id
+		JOIN stories s ON sm.story_id = s.id
+		WHERE sr.user_id = $1 AND s.companion_id = $2
+		ORDER BY sr.created_at DESC
+		LIMIT 5`
+
+	recentRows, err := r.pool.Query(ctx, recentQuery, userID, companionID)
+	if err != nil {
+		return nil, fmt.Errorf("querying recent reactions: %w", err)
+	}
+	defer recentRows.Close()
+
+	var recent []models.RecentReaction
+	for recentRows.Next() {
+		var rr models.RecentReaction
+		if err := recentRows.Scan(&rr.Reaction, &rr.ReactedAt); err != nil {
+			return nil, fmt.Errorf("scanning recent reaction: %w", err)
+		}
+		recent = append(recent, rr)
+	}
+	if err := recentRows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating recent reactions: %w", err)
+	}
+
+	return &models.ReactionSummary{
+		Total:           total,
+		Counts:          counts,
+		Recent:          recent,
+		DominantEmotion: dominant,
+	}, nil
 }

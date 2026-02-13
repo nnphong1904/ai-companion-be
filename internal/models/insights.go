@@ -39,3 +39,17 @@ type InsightStats struct {
 	FirstMessage  *time.Time `json:"first_message,omitempty"`
 	DaysTogether  int        `json:"days_together"`
 }
+
+// ReactionSummary aggregates story reaction data for a user-companion pair.
+type ReactionSummary struct {
+	Total           int              `json:"total"`
+	Counts          map[string]int   `json:"counts"`
+	Recent          []RecentReaction `json:"recent"`
+	DominantEmotion *string          `json:"dominant_emotion"`
+}
+
+// RecentReaction represents a single recent reaction.
+type RecentReaction struct {
+	Reaction  string    `json:"reaction"`
+	ReactedAt time.Time `json:"reacted_at"`
+}

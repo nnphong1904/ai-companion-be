@@ -56,6 +56,11 @@ func (s *InsightsService) RecordMood(ctx context.Context, userID, companionID uu
 	_ = s.insights.RecordMoodSnapshot(ctx, userID, companionID, moodScore)
 }
 
+// GetReactionSummary returns reaction analytics for a user-companion pair.
+func (s *InsightsService) GetReactionSummary(ctx context.Context, userID, companionID uuid.UUID) (*models.ReactionSummary, error) {
+	return s.insights.GetReactionSummary(ctx, userID, companionID)
+}
+
 func computeStreak(dates []time.Time) models.StreakInfo {
 	if len(dates) == 0 {
 		return models.StreakInfo{}

@@ -38,3 +38,22 @@ func (h *InsightsHandler) GetInsights(w http.ResponseWriter, r *http.Request) {
 
 	JSON(w, http.StatusOK, insights)
 }
+
+// GetReactionSummary handles GET /api/companions/{id}/reactions/summary.
+func (h *InsightsHandler) GetReactionSummary(w http.ResponseWriter, r *http.Request) {
+	companionID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		Error(w, http.StatusBadRequest, "invalid companion id")
+		return
+	}
+
+	userID := middleware.GetUserID(r.Context())
+
+	summary, err := h.insights.GetReactionSummary(r.Context(), userID, companionID)
+	if err != nil {
+		Error(w, http.StatusInternalServerError, "failed to fetch reaction summary")
+		return
+	}
+
+	JSON(w, http.StatusOK, summary)
+}

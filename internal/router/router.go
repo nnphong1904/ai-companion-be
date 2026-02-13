@@ -91,6 +91,7 @@ func New(
 
 			// Insights.
 			r.Get("/companions/{id}/insights", insightsH.GetInsights)
+			r.Get("/companions/{id}/reactions/summary", insightsH.GetReactionSummary)
 		})
 	})
 
