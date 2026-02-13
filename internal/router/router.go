@@ -52,6 +52,10 @@ func New(
 			r.Post("/login", authH.Login)
 		})
 
+		// Public companion browsing (anonymous access).
+		r.Get("/browse/companions", companionH.GetAll)
+		r.Get("/browse/companions/{id}", companionH.GetByID)
+
 		// Protected routes.
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.Auth(cfg.JWT))
