@@ -17,6 +17,7 @@ type StoryRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*models.Story, error)
 	GetByCompanionID(ctx context.Context, companionID uuid.UUID) ([]models.Story, error)
 	GetActiveStories(ctx context.Context, cursor *time.Time, limit int) (*models.StoryPage, error)
+	GetActiveStoriesGrouped(ctx context.Context) (*models.GroupedStoryPage, error)
 	CreateReaction(ctx context.Context, reaction *models.StoryReaction) error
 }
 
@@ -142,6 +143,72 @@ func (r *storyRepo) GetActiveStories(ctx context.Context, cursor *time.Time, lim
 	return page, nil
 }
 
+func (r *storyRepo) GetActiveStoriesGrouped(ctx context.Context) (*models.GroupedStoryPage, error) {
+	query := `
+		SELECT s.id, s.companion_id, s.created_at, s.expires_at,
+		       c.name, c.avatar_url
+		FROM stories s
+		JOIN companions c ON c.id = s.companion_id
+		WHERE s.expires_at > NOW()
+		ORDER BY s.created_at DESC`
+
+	rows, err := r.pool.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("querying active stories grouped: %w", err)
+	}
+	defer rows.Close()
+
+	var allStories []models.Story
+	companionInfo := make(map[uuid.UUID]struct{ name, avatar string })
+
+	for rows.Next() {
+		var s models.Story
+		var name, avatar string
+		if err := rows.Scan(&s.ID, &s.CompanionID, &s.CreatedAt, &s.ExpiresAt, &name, &avatar); err != nil {
+			return nil, fmt.Errorf("scanning story: %w", err)
+		}
+		allStories = append(allStories, s)
+		if _, ok := companionInfo[s.CompanionID]; !ok {
+			companionInfo[s.CompanionID] = struct{ name, avatar string }{name, avatar}
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	allStories, err = r.loadMedia(ctx, allStories)
+	if err != nil {
+		return nil, err
+	}
+
+	// Group stories by companion, preserving DESC order (latest story first).
+	groupMap := make(map[uuid.UUID]*models.CompanionStoryGroup)
+	var groupOrder []uuid.UUID
+
+	for _, s := range allStories {
+		g, ok := groupMap[s.CompanionID]
+		if !ok {
+			info := companionInfo[s.CompanionID]
+			g = &models.CompanionStoryGroup{
+				CompanionID:   s.CompanionID,
+				CompanionName: info.name,
+				AvatarURL:     info.avatar,
+				LatestAt:      s.CreatedAt,
+			}
+			groupMap[s.CompanionID] = g
+			groupOrder = append(groupOrder, s.CompanionID)
+		}
+		g.Stories = append(g.Stories, s)
+	}
+
+	companions := make([]models.CompanionStoryGroup, 0, len(groupOrder))
+	for _, cid := range groupOrder {
+		companions = append(companions, *groupMap[cid])
+	}
+
+	return &models.GroupedStoryPage{Companions: companions}, nil
+}
+
 func (r *storyRepo) CreateReaction(ctx context.Context, reaction *models.StoryReaction) error {
 	query := `
 		INSERT INTO story_reactions (id, user_id, story_id, media_id, reaction, created_at)
@@ -160,17 +227,17 @@ func (r *storyRepo) loadMedia(ctx context.Context, stories []models.Story) ([]mo
 		return stories, nil
 	}
 
-	storyIDs := make([]uuid.UUID, len(stories))
+	storyIDs := make([]string, len(stories))
 	storyMap := make(map[uuid.UUID]int, len(stories))
 	for i, s := range stories {
-		storyIDs[i] = s.ID
+		storyIDs[i] = s.ID.String()
 		storyMap[s.ID] = i
 	}
 
 	mediaQuery := `
 		SELECT id, story_id, media_url, media_type, duration, sort_order, created_at
 		FROM story_media
-		WHERE story_id = ANY($1)
+		WHERE story_id = ANY($1::uuid[])
 		ORDER BY sort_order`
 
 	mediaRows, err := r.pool.Query(ctx, mediaQuery, storyIDs)

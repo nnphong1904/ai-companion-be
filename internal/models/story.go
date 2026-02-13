@@ -36,11 +36,25 @@ type StoryReaction struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+// CompanionStoryGroup groups all active stories for a single companion.
+type CompanionStoryGroup struct {
+	CompanionID   uuid.UUID `json:"companion_id"`
+	CompanionName string    `json:"companion_name"`
+	AvatarURL     string    `json:"avatar_url"`
+	Stories       []Story   `json:"stories"`
+	LatestAt      time.Time `json:"latest_at"` // most recent story timestamp (for ordering)
+}
+
 // StoryPage represents a cursor-paginated page of stories.
 type StoryPage struct {
 	Stories    []Story `json:"stories"`
 	NextCursor string  `json:"next_cursor,omitempty"`
 	HasMore    bool    `json:"has_more"`
+}
+
+// GroupedStoryPage represents stories grouped by companion.
+type GroupedStoryPage struct {
+	Companions []CompanionStoryGroup `json:"companions"`
 }
 
 // ReactToStoryRequest is the payload for reacting to a story slide.

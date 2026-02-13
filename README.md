@@ -1,62 +1,8 @@
 # AI Companion Backend
 
-Go REST API powering an AI companion social app with Stories, Relationship States, and Memories.
+Go REST API powering an AI companion social app with Stories, Relationship States, Memories, and Insights.
 
-**Live API:** `<deployment-url>`
 **Stack:** Go 1.24 &middot; Chi v5 &middot; PostgreSQL (Supabase) &middot; OpenAI GPT-4o-mini
-
----
-
-## Table of Contents
-
-- [Competitor Research](#competitor-research)
-- [Product Feature Decisions](#product-feature-decisions)
-- [Architecture & Technical Decisions](#architecture--technical-decisions)
-- [Database Design & Scalability](#database-design--scalability)
-- [API Reference](#api-reference)
-- [Engineering Process & Challenges](#engineering-process--challenges)
-- [Running Locally](#running-locally)
-
----
-
-## Competitor Research
-
-I studied the following products to understand what makes AI companionship compelling:
-
-- **Nectar AI** — The primary reference. Stories feel native to the companion experience because they make AI characters feel like they have independent lives happening "off-screen." The social loop (stories -> reactions -> chat) keeps users returning. Nectar treats companions as social media presences, not just chatbots.
-- **Character.ai** — Demonstrates that personality consistency is the #1 retention driver. Users return for the *character*, not the technology. This informed my decision to make personality traits directly influence AI response generation and mood progression.
-- **Replika** — Pioneered the emotional bond system. Their "relationship levels" create a progression mechanic that gamifies engagement. I adapted this into my Relationship States feature, but made it bidirectional — the companion's mood toward the *user* changes, not just a level counter.
-- **Instagram Stories** — The UX benchmark for Stories. Key patterns: tap-to-advance, hold-to-pause, swipe-to-next-person, progress bar segmentation, 24h expiry. These informed the backend's data model (stories with ordered media slides, expiration timestamps).
-
-**Key insight:** The most successful companion apps create the illusion of a persistent, autonomous being. Stories are powerful because they imply the companion *did something* without the user prompting it.
-
----
-
-## Product Feature Decisions
-
-### Core Feature: Stories
-
-Instagram-style ephemeral stories posted by AI companions. Each story contains one or more media slides (images/videos) that auto-expire. Users can react with emoji reactions, which deepens the relationship.
-
-**Why Stories?** Stories are the heart of the "Social Loop" described in the assessment. They create passive engagement — users check in to see what their companions are up to, even without initiating a conversation. This mirrors real social media behavior and makes companions feel autonomous.
-
-### Custom Feature 1: Relationship States (Emotional Bond System)
-
-A dynamic emotional model where each user-companion pair has two independent scores:
-
-- **Mood Score (0-100):** How the companion currently *feels* about the user. Affects AI response tone.
-  - Distant (0-20) -> Neutral (20-50) -> Happy (50-80) -> Attached (80+)
-- **Relationship Score (0-100):** The overall depth of the bond, built over time.
-
-Scores increase through interactions — chatting (+2 mood, +1 relationship), reacting to stories (+3 mood, +2 relationship). The mood label is fed directly into the OpenAI system prompt, so a "Distant" companion gives cold, disengaged replies while an "Attached" companion is deeply caring and uses pet names.
-
-**Why this feature?** After studying Replika and Character.ai, it became clear that static AI personalities get stale. Users need to feel like their interactions *matter* — that the companion remembers and evolves. Relationship States create a progression mechanic that rewards consistent engagement and makes every interaction feel consequential. It also solves a real product problem: giving users a reason to come back daily. Checking your companion's mood becomes habitual, like checking social media.
-
-### Custom Feature 2: Memories (Curated Moment Timeline)
-
-Users can save meaningful moments from their conversations as "Memories" — text snapshots with optional tags that form a shared timeline with each companion. Memories can be pinned to keep important moments at the top.
-
-**Why this feature?** Companion apps generate enormous amounts of conversation, but most of it is ephemeral small talk. Memories let users curate the moments that matter — a funny exchange, a meaningful confession, a milestone in the relationship. This serves two purposes: (1) it gives users a sense of investment in the relationship ("look at everything we've shared"), and (2) it creates a nostalgia mechanism that deepens emotional attachment. The pinning system lets users build a personal highlight reel.
 
 ---
 
@@ -131,7 +77,7 @@ A fallback response matrix handles OpenAI outages — pre-written mood-aware res
 
 ### Schema Overview
 
-8 tables with Row Level Security on all of them:
+9 tables with Row Level Security on all of them:
 
 | Table | Purpose | Key Index Strategy |
 |---|---|---|
@@ -143,6 +89,7 @@ A fallback response matrix handles OpenAI outages — pre-written mood-aware res
 | `messages` | Chat history | `(user_id, companion_id, created_at DESC)` for cursor pagination |
 | `relationship_states` | Mood + relationship scores | `UNIQUE(user_id, companion_id)` for single-row lookup |
 | `memories` | Curated moments | `(user_id, companion_id, pinned DESC, created_at DESC)` for pinned-first timeline |
+| `mood_history` | Daily mood snapshots | `(user_id, companion_id, recorded_date)` for trend queries |
 
 ### Scalability Decisions
 
@@ -187,77 +134,6 @@ A `cleanup_expired_stories()` SQL function deletes stories that expired over an 
 **8. RLS as defense-in-depth (Rule 3.2/3.3)**
 
 Every table has Row Level Security policies. User-scoped tables (messages, reactions, memories, relationships) use `USING (user_id = (select current_setting('app.current_user_id', true))::uuid)` with the `(select ...)` wrapper for per-query caching (100x+ faster than calling the function per-row on large tables).
-
----
-
-## API Reference
-
-### Authentication
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/api/auth/signup` | Register a new user |
-| `POST` | `/api/auth/login` | Authenticate and receive JWT |
-| `GET` | `/api/auth/me` | Get current user profile |
-
-### Companions
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/api/companions` | List all companions |
-| `GET` | `/api/companions/:id` | Get companion details |
-
-### Stories
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/api/stories?cursor=&limit=` | Paginated active stories feed |
-| `GET` | `/api/companions/:id/stories` | Stories for a specific companion |
-| `POST` | `/api/stories/:id/react` | React to a story slide |
-
-### Messages
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/api/companions/:id/messages?cursor=&limit=` | Paginated chat history |
-| `POST` | `/api/companions/:id/messages` | Send message, receive AI reply |
-
-### Relationships
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/api/relationships` | All user relationships |
-| `GET` | `/api/companions/:id/relationship` | Relationship with specific companion |
-| `POST` | `/api/onboarding/select-companion` | Select companion during onboarding |
-
-### Memories
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/api/companions/:id/memories?limit=` | Paginated memory timeline |
-| `POST` | `/api/companions/:id/memories` | Create a memory |
-| `DELETE` | `/api/memories/:id` | Delete a memory |
-| `PATCH` | `/api/memories/:id/pin` | Toggle pin status |
-
-All protected endpoints require `Authorization: Bearer <jwt>`.
-
----
-
-## Engineering Process & Challenges
-
-### Process
-
-1. **Research phase:** Studied Nectar AI, Character.ai, Replika, and Instagram to understand what makes companion apps compelling and what the "Social Loop" means in practice.
-2. **Learning Go with AI:** Since this was my first Go project, I used AI tools to learn the language's patterns while building. I'd describe the architecture I wanted, study the generated code to understand Go-specific patterns (interface-based polymorphism, goroutine-safe connection pools, struct embedding), and refactor until the code felt idiomatic. Key learnings: Go's error handling philosophy, the `context.Context` propagation pattern, and how `pgx` handles connection pooling differently from ORMs I was familiar with.
-3. **Schema-first design:** Designed the database schema before writing any Go code. Every table, index, and RLS policy was planned upfront to avoid retroactive migrations.
-4. **Layer-by-layer implementation:** Built bottom-up — database -> repositories -> services -> handlers -> router. Each layer was tested in isolation before adding the next.
-5. **Optimization pass:** After the feature set was complete, audited every query against its indexes using the Supabase performance advisor. Dropped 6 redundant indexes and added cursor-based pagination where queries were unbounded.
-
-### Challenges & Debugging
-
-**PgBouncer prepared statement conflicts:** Early in development, queries intermittently failed with "prepared statement does not exist" errors. This happened because Supabase's default pooler runs in transaction mode, where connections are shared between requests. pgx's default extended protocol caches prepared statements per-connection, but in transaction mode you might get a different connection on the next query. The fix was setting `QueryExecModeExec` to use simple protocol when the pooler is enabled.
-
-**Relationship state in story reactions:** The `updateRelationshipOnReaction` function originally called `GetActiveStories()` — fetching *all* active stories just to find one story's `companion_id`. This was a hidden O(n) lookup that would degrade as stories accumulated. Fixed by adding a `GetByID` method to the story repository — a single PK lookup instead of a full table scan.
-
-**Cursor pagination for multi-column sorts:** The memories query sorts by `(pinned DESC, created_at DESC)`, which makes cursor pagination non-trivial. A compound cursor encoding both `pinned` and `created_at` was considered but added significant complexity. Since memories per user-companion pair are naturally bounded (50-200 typical), I opted for a simple LIMIT-based approach with a `has_more` indicator — pragmatic over perfectly "correct."
-
-**Migration idempotency:** All migrations use `IF NOT EXISTS` / `IF EXISTS` guards and `ON CONFLICT DO NOTHING` for seed data. This allows migrations to be re-run safely without failing on duplicate objects, which is important when the migration runner executes all files on every server start.
-
-**Learning Go idioms on the fly:** Coming from other languages, my initial instinct was to reach for classes and inheritance. Go's composition model (struct embedding + interfaces) required a mindset shift. For example, the repository layer uses interfaces (`StoryRepository`, `MemoryRepository`) consumed by services — this is Go's version of dependency inversion, and it was unintuitive at first. AI tools helped me understand the *why* behind patterns like accepting interfaces and returning structs, which I now recognize as key to Go's simplicity.
 
 ---
 
