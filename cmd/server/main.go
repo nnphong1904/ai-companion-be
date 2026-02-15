@@ -9,6 +9,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/joho/godotenv"
+
 	"ai-companion-be/internal/ai"
 	"ai-companion-be/internal/config"
 	"ai-companion-be/internal/database"
@@ -21,6 +23,9 @@ import (
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
+
+	// Load .env file if present (no error if missing, e.g. in production).
+	_ = godotenv.Load()
 
 	cfg := config.Load()
 
